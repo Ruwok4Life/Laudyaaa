@@ -12,13 +12,12 @@ local activeIsland = nil
 local clickPosition = nil
 local settingClickPosition = false
 local fishCount = 0
-local autoSellThreshold = 500
+local autoSellThreshold = 50
 
-local islands = {
-    { Name = "Esoteric Depths", Position = Vector3.new(3201.89, -1302.85, 1433.71), LookAt = Vector3.new(3300, -1300, 400) },
-    { Name = "Treasure Room", Position = Vector3.new(-3611.89, -279.07, -1589.51), LookAt = Vector3.new(-3619.21, -286.53, -1602.57) },
-    { Name = "Lost Isle", Position = Vector3.new(-3738.2, -135.1, -1011.9), LookAt = Vector3.new(-3600, -135, -1200) },
-}
+local autoFishWasOn = false
+local autoSellWasOn = false
+local autoClickerWasOn = false
+local fpsBoostWasOn = false
 
 local gui
 local clickIndicator
@@ -28,22 +27,23 @@ local allGuiElements = {}
 local protectedElements = {}
 local originalLightingSettings = {}
 
+local islands = {
+    { Name = "Esoteric Depths", Position = Vector3.new(3201.89, -1302.85, 1433.71), LookAt = Vector3.new(3300, -1300, 400) },
+    { Name = "Treasure Room", Position = Vector3.new(-3611.89, -279.07, -1589.51), LookAt = Vector3.new(-3619.21, -286.53, -1602.57) },
+    { Name = "Lost Isle", Position = Vector3.new(-3738.2, -135.1, -1011.9), LookAt = Vector3.new(-3600, -135, -1200) },
+}
+
 local function getFishCount()
     local count = 0
     pcall(function()
-        local backpack = player.Backpack
-        local char = player.Character
-        if backpack then
-            for _, item in ipairs(backpack:GetChildren()) do
-                if item:IsA("Tool") and not item.Name:lower():find("rod") then
-                    count = count + 1
-                end
-            end
-        end
-        if char then
-            for _, item in ipairs(char:GetChildren()) do
-                if item:IsA("Tool") and not item.Name:lower():find("rod") then
-                    count = count + 1
+        for _, gui in pairs(player.PlayerGui:GetDescendants()) do
+            if (gui:IsA("TextLabel") or gui:IsA("TextButton")) and gui.Visible then
+                local currentFish = gui.Text:match("(%d+)/")
+                if currentFish then
+                    local fishNum = tonumber(currentFish)
+                    if fishNum and fishNum > count then
+                        count = fishNum
+                    end
                 end
             end
         end
@@ -53,21 +53,30 @@ end
 
 local function sellAllFish()
     pcall(function()
-        local pkg = replicatedStorage:FindFirstChild("Packages")
-        if not pkg then return end
-        local idx = pkg:FindFirstChild("_Index")
+        local net = replicatedStorage:FindFirstChild("Packages")
+        if not net then return end
+        
+        local idx = net:FindFirstChild("_Index")
         if not idx then return end
+        
         local sleitnick = idx:FindFirstChild("sleitnick_net@0.2.0")
         if not sleitnick then return end
+        
         local netFolder = sleitnick:FindFirstChild("net")
         if not netFolder then return end
-        for _, obj in ipairs(netFolder:GetDescendants()) do
-            if (obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent")) then
-                local nameLower = obj.Name:lower()
-                if nameLower:find("sell") then
+        
+        for _, remote in ipairs(netFolder:GetDescendants()) do
+            if remote:IsA("RemoteFunction") or remote:IsA("RemoteEvent") then
+                local name = remote.Name:lower()
+                if name:find("sell") and not name:find("buy") then
                     pcall(function()
-                        if obj:IsA("RemoteFunction") then obj:InvokeServer() else obj:FireServer() end
+                        if remote:IsA("RemoteFunction") then
+                            remote:InvokeServer()
+                        else
+                            remote:FireServer()
+                        end
                     end)
+                    task.wait(0.5)
                 end
             end
         end
@@ -77,14 +86,62 @@ end
 local function autoSellLoop()
     task.spawn(function()
         while autoSellRunning do
-            pcall(function()
-                fishCount = getFishCount()
-                if fishCount >= autoSellThreshold then
-                    sellAllFish()
-                    task.wait(2)
+            task.wait(15)
+            fishCount = getFishCount()
+            if fishCount >= autoSellThreshold then
+                sellAllFish()
+                task.wait(3)
+            end
+        end
+    end)
+end
+
+local function enableAutoFish()
+    task.spawn(function()
+        local char = player.Character
+        if not char then return end
+        
+        local hasRod = false
+        for _, tool in pairs(char:GetChildren()) do
+            if tool:IsA("Tool") and tool.Name:lower():find("rod") then
+                hasRod = true
+                break
+            end
+        end
+        
+        if not hasRod then
+            for _, tool in pairs(player.Backpack:GetChildren()) do
+                if tool:IsA("Tool") and tool.Name:lower():find("rod") then
+                    char.Humanoid:EquipTool(tool)
+                    hasRod = true
+                    break
                 end
-            end)
-            task.wait(5)
+            end
+        end
+        
+        if not hasRod then
+            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.One, false, game)
+            task.wait(0.3)
+        end
+        
+        task.wait(0.5)
+        
+        local net = replicatedStorage:FindFirstChild("Packages")
+        if net then
+            local idx = net:FindFirstChild("_Index")
+            if idx then
+                local sleitnick = idx:FindFirstChild("sleitnick_net@0.2.0")
+                if sleitnick then
+                    local netFolder = sleitnick:FindFirstChild("net")
+                    if netFolder then
+                        local rfFolder = netFolder:FindFirstChild("RF/UpdateAutoFishingState")
+                        if rfFolder and rfFolder:IsA("RemoteFunction") then
+                            task.wait(0.5)
+                            pcall(function() rfFolder:InvokeServer(true) end)
+                        end
+                    end
+                end
+            end
         end
     end)
 end
@@ -98,6 +155,7 @@ local function enableFPSBoost()
         FogEnd = Lighting.FogEnd,
         FogStart = Lighting.FogStart,
     }
+    
     settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
     settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level01
     Lighting.GlobalShadows = false
@@ -106,13 +164,19 @@ local function enableFPSBoost()
     Lighting.Technology = Enum.Technology.Compatibility
     Lighting.FogEnd = 100
     Lighting.FogStart = 0
+    
     for _, effect in ipairs(Lighting:GetChildren()) do
-        if effect:IsA("PostEffect") or effect:IsA("BloomEffect") or effect:IsA("BlurEffect") or 
-           effect:IsA("ColorCorrectionEffect") or effect:IsA("SunRaysEffect") or 
-           effect:IsA("DepthOfFieldEffect") or effect:IsA("Atmosphere") or effect:IsA("Sky") then
-            effect.Enabled = false
-        end
+        pcall(function()
+            if effect:IsA("PostEffect") or effect:IsA("BloomEffect") or effect:IsA("BlurEffect") or 
+               effect:IsA("ColorCorrectionEffect") or effect:IsA("SunRaysEffect") or 
+               effect:IsA("DepthOfFieldEffect") then
+                effect.Enabled = false
+            elseif effect:IsA("Atmosphere") or effect:IsA("Sky") then
+                effect:Destroy()
+            end
+        end)
     end
+    
     task.spawn(function()
         for _, obj in pairs(workspace:GetDescendants()) do
             pcall(function()
@@ -124,35 +188,24 @@ local function enableFPSBoost()
                     obj.CastShadow = false
                     obj.Material = Enum.Material.SmoothPlastic
                     obj.Reflectance = 0
-                    if obj.Name:lower():find("water") then
-                        obj.Transparency = 0.9
-                    end
-                    if obj.Material == Enum.Material.Grass or obj.Material == Enum.Material.Sand or
-                       obj.Material == Enum.Material.Wood or obj.Material == Enum.Material.Concrete or
-                       obj.Material == Enum.Material.Brick or obj.Material == Enum.Material.Cobblestone or
-                       obj.Material == Enum.Material.Ground then
-                        obj.Material = Enum.Material.SmoothPlastic
-                    end
                 elseif obj:IsA("Decal") or obj:IsA("Texture") then
-                    obj:Destroy()
-                elseif obj:IsA("SpecialMesh") then
-                    obj:Destroy()
+                    obj.Transparency = 1
                 elseif obj:IsA("MeshPart") then
                     obj.RenderFidelity = Enum.RenderFidelity.Performance
                     obj.Material = Enum.Material.SmoothPlastic
                     obj.CastShadow = false
-                elseif obj:IsA("Tool") and obj.Parent == workspace then
-                    obj:Destroy()
                 end
             end)
         end
     end)
+    
     pcall(function()
         workspace.Terrain.WaterTransparency = 1
         workspace.Terrain.WaterReflectance = 0
         workspace.Terrain.WaterWaveSize = 0
         workspace.Terrain.WaterWaveSpeed = 0
     end)
+    
     UserSettings():GetService("UserGameSettings").SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
 end
 
@@ -165,18 +218,49 @@ local function disableFPSBoost()
         Lighting.FogEnd = originalLightingSettings.FogEnd or 100000
         Lighting.FogStart = originalLightingSettings.FogStart or 0
     end
+    
     settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
+    
     for _, effect in ipairs(Lighting:GetChildren()) do
         if effect:IsA("PostEffect") then
             effect.Enabled = true
         end
     end
+    
     pcall(function()
         workspace.Terrain.WaterTransparency = 0.3
         workspace.Terrain.WaterReflectance = 1
         workspace.Terrain.WaterWaveSize = 0.15
         workspace.Terrain.WaterWaveSpeed = 10
     end)
+end
+
+local function teleportAndFace()
+    local char = player.Character
+    if not (char and char:FindFirstChild("HumanoidRootPart") and activeIsland) then return end
+    
+    local hrp = char.HumanoidRootPart
+    hrp.CFrame = CFrame.new(activeIsland.Position + Vector3.new(0, 5, 0))
+    task.wait(0.4)
+    
+    local waterPart = nil
+    local shortestDist = math.huge
+    
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:lower():find("water") then
+            local dist = (obj.Position - hrp.Position).Magnitude
+            if dist < shortestDist and dist < 300 then
+                shortestDist = dist
+                waterPart = obj
+            end
+        end
+    end
+    
+    if waterPart then
+        hrp.CFrame = CFrame.lookAt(hrp.Position, waterPart.Position)
+    else
+        hrp.CFrame = CFrame.lookAt(hrp.Position, activeIsland.LookAt)
+    end
 end
 
 local function isMouseOverGui()
@@ -201,14 +285,9 @@ local function setGuiInteractable(enabled)
                     break
                 end
             end
-            if not isProtected then
-                if element:GetAttribute("OriginalTransparency") then
-                    if enabled then
-                        element.BackgroundTransparency = element:GetAttribute("OriginalTransparency")
-                    else
-                        element.BackgroundTransparency = 0.7
-                    end
-                end
+            
+            if not isProtected and element:GetAttribute("OriginalTransparency") then
+                element.BackgroundTransparency = enabled and element:GetAttribute("OriginalTransparency") or 0.7
             end
         end
     end
@@ -217,9 +296,11 @@ end
 local function stopAutoClicker()
     autoClickerRunning = false
     setGuiInteractable(true)
+    
     if not settingClickPosition then
         clickIndicator.Visible = false
     end
+    
     if autoClickerToggle then
         local sliderBg = autoClickerToggle:FindFirstChild("Frame")
         local knob = sliderBg and sliderBg:FindFirstChild("Frame")
@@ -234,24 +315,24 @@ local function autoClickerLoop()
     task.spawn(function()
         while autoClickerRunning do
             pcall(function()
-                local shouldClick = true
                 if clickPosition and closeBtn then
                     local closePos = closeBtn.AbsolutePosition
                     local closeSize = closeBtn.AbsoluteSize
-                    if clickPosition.X >= closePos.X and clickPosition.X <= closePos.X + closeSize.X and
-                       clickPosition.Y >= closePos.Y and clickPosition.Y <= closePos.Y + closeSize.Y then
-                        shouldClick = false
-                    end
+                    local shouldClick = not (
+                        clickPosition.X >= closePos.X and 
+                        clickPosition.X <= closePos.X + closeSize.X and
+                        clickPosition.Y >= closePos.Y and 
+                        clickPosition.Y <= closePos.Y + closeSize.Y
+                    )
+                    
                     if shouldClick then
                         local VirtualInputManager = game:GetService("VirtualInputManager")
                         VirtualInputManager:SendMouseButtonEvent(clickPosition.X, clickPosition.Y, 0, true, game, 0)
                         task.wait(0.01)
                         VirtualInputManager:SendMouseButtonEvent(clickPosition.X, clickPosition.Y, 0, false, game, 0)
                     end
-                else
-                    if not isMouseOverGui() then
-                        mouse1click()
-                    end
+                elseif not isMouseOverGui() then
+                    mouse1click()
                 end
             end)
             task.wait(clickerDelay)
@@ -260,58 +341,10 @@ local function autoClickerLoop()
 end
 
 UserInputService.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        if autoClickerRunning then
-            stopAutoClicker()
-        end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 and autoClickerRunning then
+        stopAutoClicker()
     end
 end)
-
-local function teleportAndFace()
-    local char = player.Character
-    if not (char and char:FindFirstChild("HumanoidRootPart") and activeIsland) then return end
-    local hrp = char.HumanoidRootPart
-    hrp.CFrame = CFrame.new(activeIsland.Position + Vector3.new(0, 5, 0))
-    task.wait(0.4)
-    local waterPart = nil
-    local shortestDist = math.huge
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and string.find(obj.Name:lower(), "water") then
-            local dist = (obj.Position - hrp.Position).Magnitude
-            if dist < shortestDist and dist < 300 then
-                shortestDist = dist
-                waterPart = obj
-            end
-        end
-    end
-    if waterPart then
-        hrp.CFrame = CFrame.lookAt(hrp.Position, waterPart.Position)
-    else
-        hrp.CFrame = CFrame.lookAt(hrp.Position, activeIsland.LookAt)
-    end
-end
-
-local function enableAutoFish()
-    local char = player.Character
-    if not char then return end
-    if not char:FindFirstChild("FishingRod") then
-        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.One, false, game)
-        task.wait(0.3)
-    end
-    local net = replicatedStorage:FindFirstChild("Packages")
-    if net then
-        local idx = net:FindFirstChild("_Index")
-        if idx then
-            local sleitnick = idx:FindFirstChild("sleitnick_net@0.2.0")
-            if sleitnick and sleitnick:FindFirstChild("net") then
-                local rfFolder = sleitnick.net:FindFirstChild("RF/UpdateAutoFishingState")
-                if rfFolder and rfFolder:IsA("RemoteFunction") then
-                    pcall(function() rfFolder:InvokeServer(true) end)
-                end
-            end
-        end
-    end
-end
 
 local function createCategoryHeader(parent, text, posY)
     local header = Instance.new("TextLabel", parent)
@@ -337,7 +370,9 @@ local function createModernToggle(parent, labelText, posY, onToggleCallback)
     holder.Text = ""
     holder.AutoButtonColor = false
     holder:SetAttribute("OriginalTransparency", 0.3)
+    
     Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 8)
+    
     local stroke = Instance.new("UIStroke", holder)
     stroke.Color = Color3.fromRGB(70, 70, 85)
     stroke.Thickness = 1
@@ -385,6 +420,7 @@ local function createModernToggle(parent, labelText, posY, onToggleCallback)
         setVisual(isOn)
         if onToggleCallback then onToggleCallback(isOn, holder) end
     end)
+    
     setVisual(false)
     table.insert(allGuiElements, holder)
     return holder
@@ -403,18 +439,21 @@ local function createButton(parent, labelText, posY, onClickCallback)
     holder.TextSize = 15
     holder.AutoButtonColor = false
     holder:SetAttribute("OriginalTransparency", 0.2)
+    
     Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 8)
+    
     holder.MouseButton1Click:Connect(function()
         if onClickCallback then onClickCallback() end
     end)
+    
     holder.MouseEnter:Connect(function()
-        if holder.Active then
-            TweenService:Create(holder, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
-        end
+        TweenService:Create(holder, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
     end)
+    
     holder.MouseLeave:Connect(function()
-        TweenService:Create(holder, TweenInfo.new(0.2), {BackgroundTransparency = holder:GetAttribute("OriginalTransparency") or 0.2}):Play()
+        TweenService:Create(holder, TweenInfo.new(0.2), {BackgroundTransparency = 0.2}):Play()
     end)
+    
     table.insert(allGuiElements, holder)
     return holder
 end
@@ -426,7 +465,9 @@ local function createSlider(parent, labelText, posY, minVal, maxVal, defaultVal,
     holder.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
     holder.BackgroundTransparency = 0.3
     holder.BorderSizePixel = 0
+    
     Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 8)
+    
     local stroke = Instance.new("UIStroke", holder)
     stroke.Color = Color3.fromRGB(70, 70, 85)
     stroke.Thickness = 1
@@ -473,46 +514,62 @@ local function createSlider(parent, labelText, posY, minVal, maxVal, defaultVal,
     Instance.new("UICorner", sliderButton).CornerRadius = UDim.new(1, 0)
 
     local dragging = false
-    sliderButton.MouseButton1Down:Connect(function()
-        dragging = true
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    
+    local function updateSlider(pos)
+        local sliderPos = sliderFrame.AbsolutePosition.X
+        local sliderSize = sliderFrame.AbsoluteSize.X
+        local percentage = math.clamp((pos - sliderPos) / sliderSize, 0, 1)
+        local value = math.floor(minVal + (maxVal - minVal) * percentage)
+        sliderButton.Position = UDim2.new(percentage, -8, 0.5, -8)
+        sliderFill.Size = UDim2.new(percentage, 0, 1, 0)
+        valueLabel.Text = tostring(value) .. " CPS"
+        if onValueChanged then onValueChanged(value) end
+    end
+    
+    sliderButton.MouseButton1Down:Connect(function() dragging = true end)
+    
+    sliderButton.TouchPan:Connect(function(touchPositions, totalTranslation, velocity, userInputState)
+        if userInputState == Enum.UserInputState.Change and touchPositions[1] then
+            dragging = true
+            updateSlider(touchPositions[1].X)
+        elseif userInputState == Enum.UserInputState.End then
             dragging = false
         end
     end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local mousePos = UserInputService:GetMouseLocation().X
-            local sliderPos = sliderFrame.AbsolutePosition.X
-            local sliderSize = sliderFrame.AbsoluteSize.X
-            local percentage = math.clamp((mousePos - sliderPos) / sliderSize, 0, 1)
-            local value = math.floor(minVal + (maxVal - minVal) * percentage)
-            sliderButton.Position = UDim2.new(percentage, -8, 0.5, -8)
-            sliderFill.Size = UDim2.new(percentage, 0, 1, 0)
-            valueLabel.Text = tostring(value) .. " CPS"
-            if onValueChanged then
-                onValueChanged(value)
-            end
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
         end
     end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging then
+            local pos
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                pos = UserInputService:GetMouseLocation().X
+            elseif input.UserInputType == Enum.UserInputType.Touch then
+                pos = input.Position.X
+            end
+            if pos then updateSlider(pos) end
+        end
+    end)
+    
     table.insert(allGuiElements, sliderButton)
     return holder
 end
 
-local blur
 local function buildUI()
-    if gui then gui:Destroy() end
-    if blur then blur:Destroy() end
-
-    blur = Instance.new("BlurEffect")
+    if gui then return end
+    
+    local blur = Instance.new("BlurEffect")
     blur.Size = 12
-    blur.Parent = game.Lighting
+    blur.Parent = Lighting
 
     gui = Instance.new("ScreenGui")
     gui.Name = "FishItGlassHub"
     gui.ResetOnSpawn = false
-    gui.Parent = player:WaitForChild("PlayerGui")
+    gui.Parent = player.PlayerGui
 
     clickIndicator = Instance.new("TextButton", gui)
     clickIndicator.Size = UDim2.new(0, 70, 0, 70)
@@ -524,12 +581,14 @@ local function buildUI()
     clickIndicator.Text = ""
     clickIndicator.AutoButtonColor = false
     Instance.new("UICorner", clickIndicator).CornerRadius = UDim.new(1, 0)
+    
     local innerCircle = Instance.new("Frame", clickIndicator)
     innerCircle.Size = UDim2.new(0, 10, 0, 10)
     innerCircle.Position = UDim2.new(0.5, -5, 0.5, -5)
     innerCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     innerCircle.BorderSizePixel = 0
     Instance.new("UICorner", innerCircle).CornerRadius = UDim.new(1, 0)
+    
     local stopLabel = Instance.new("TextLabel", clickIndicator)
     stopLabel.Size = UDim2.new(1, 0, 0, 20)
     stopLabel.Position = UDim2.new(0, 0, 1, 5)
@@ -538,10 +597,9 @@ local function buildUI()
     stopLabel.Font = Enum.Font.GothamBold
     stopLabel.TextSize = 10
     stopLabel.BackgroundTransparency = 1
+    
     clickIndicator.MouseButton1Click:Connect(function()
-        if autoClickerRunning then
-            stopAutoClicker()
-        end
+        if autoClickerRunning then stopAutoClicker() end
     end)
 
     local mainFrame = Instance.new("Frame", gui)
@@ -549,9 +607,9 @@ local function buildUI()
     mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
     mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
     mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-    mainFrame.BackgroundTransparency = 0
     mainFrame.BorderSizePixel = 0
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
+    
     local mainStroke = Instance.new("UIStroke", mainFrame)
     mainStroke.Color = Color3.fromRGB(60, 60, 75)
     mainStroke.Thickness = 1.5
@@ -577,14 +635,14 @@ local function buildUI()
     closeBtn.ZIndex = 999
     closeBtn.Active = true
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
-    closeBtn.MouseButton1Click:Connect(function() 
-        mainFrame.Visible = false
-    end)
+    
+    closeBtn.MouseButton1Click:Connect(function() mainFrame.Visible = false end)
     closeBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             mainFrame.Visible = false
         end
     end)
+    
     table.insert(protectedElements, closeBtn)
 
     local sidebar = Instance.new("Frame", mainFrame)
@@ -636,7 +694,7 @@ local function buildUI()
     infoText.TextColor3 = Color3.fromRGB(220, 220, 240)
     infoText.Font = Enum.Font.GothamBold
     infoText.TextSize = 15
-    infoText.Text = "Script developed by Einhard\nand made with luv"
+    infoText.Text = "Script by Laudya\nMade with love"
     infoText.TextXAlignment = Enum.TextXAlignment.Center
     infoText.TextYAlignment = Enum.TextYAlignment.Center
 
@@ -671,19 +729,21 @@ local function buildUI()
 
     createCategoryHeader(featuresPage, "FISHING", 10)
     createModernToggle(featuresPage, "Auto Fish", 45, function(isOn)
+        autoFishWasOn = isOn
         if isOn then enableAutoFish() end
     end)
-    createModernToggle(featuresPage, "Auto Sell (x500 fish)", 95, function(isOn)
+    
+    createModernToggle(featuresPage, "Auto Sell (50+ fish)", 95, function(isOn)
+        autoSellWasOn = isOn
         autoSellRunning = isOn
-        if isOn then 
-            autoSellLoop()
-        end
+        if isOn then autoSellLoop() end
     end)
 
     createCategoryHeader(featuresPage, "AUTO CLICKER", 155)
     createSlider(featuresPage, "Click Speed", 190, 1, 50, 20, function(value)
         clickerDelay = 1 / value
     end)
+    
     createButton(featuresPage, "Set Click Position", 265, function()
         settingClickPosition = true
         clickIndicator.Visible = true
@@ -698,14 +758,14 @@ local function buildUI()
             end
         end)
     end)
+    
     autoClickerToggle = createModernToggle(featuresPage, "Enable Auto Clicker", 320, function(isOn)
+        autoClickerWasOn = isOn
         autoClickerRunning = isOn
         if isOn then 
             autoClickerLoop()
             setGuiInteractable(false)
-            if clickPosition then
-                clickIndicator.Visible = true
-            end
+            if clickPosition then clickIndicator.Visible = true end
         else
             stopAutoClicker()
         end
@@ -714,12 +774,9 @@ local function buildUI()
 
     createCategoryHeader(featuresPage, "PERFORMANCE", 380)
     createModernToggle(featuresPage, "FPS Boost", 415, function(isOn)
+        fpsBoostWasOn = isOn
         fpsBoostEnabled = isOn
-        if isOn then
-            enableFPSBoost()
-        else
-            disableFPSBoost()
-        end
+        if isOn then enableFPSBoost() else disableFPSBoost() end
     end)
 
     local startY = 20
@@ -748,7 +805,6 @@ local function buildUI()
     logoBtn.Size = UDim2.new(0, 40, 0, 40)
     logoBtn.Position = UDim2.new(0, 15, 0.85, 0)
     logoBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-    logoBtn.BackgroundTransparency = 0
     logoBtn.Text = "🦋"
     logoBtn.TextSize = 20
     Instance.new("UICorner", logoBtn).CornerRadius = UDim.new(0, 10)
@@ -768,6 +824,7 @@ local function buildUI()
                 end)
             end
         end)
+        
         UserInputService.InputChanged:Connect(function(input)
             if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 local delta = input.Position - dragStart
@@ -775,15 +832,36 @@ local function buildUI()
             end
         end)
     end
+    
     makeDraggable(mainFrame)
     makeDraggable(logoBtn)
-
     showPage(infoPage)
 end
 
 player.CharacterAdded:Connect(function()
-    task.wait(1)
-    buildUI()
+    task.wait(2)
+    
+    if autoFishWasOn then
+        enableAutoFish()
+    end
+    
+    if autoSellWasOn then
+        autoSellRunning = true
+        autoSellLoop()
+    end
+    
+    if autoClickerWasOn then
+        autoClickerRunning = true
+        autoClickerLoop()
+    end
+    
+    if fpsBoostWasOn then
+        enableFPSBoost()
+    end
+    
+    if activeIsland then
+        teleportAndFace()
+    end
 end)
 
 buildUI()
