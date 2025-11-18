@@ -12,7 +12,7 @@ local activeIsland = nil
 local clickPosition = nil
 local settingClickPosition = false
 local fishCount = 0
-local autoSellThreshold = 500
+local autoSellThreshold = 50
 
 local autoFishWasOn = false
 local autoSellWasOn = false
@@ -602,8 +602,22 @@ local function buildUI()
         if autoClickerRunning then stopAutoClicker() end
     end)
 
+    local viewportSize = workspace.CurrentCamera.ViewportSize
+    local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+    
+    local guiWidth = 500
+    local guiHeight = 380
+    
+    if isMobile then
+        guiWidth = math.min(420, viewportSize.X * 0.85)
+        guiHeight = math.min(340, viewportSize.Y * 0.65)
+    else
+        guiWidth = math.min(500, viewportSize.X * 0.9)
+        guiHeight = math.min(380, viewportSize.Y * 0.7)
+    end
+
     local mainFrame = Instance.new("Frame", gui)
-    mainFrame.Size = UDim2.new(0, math.min(500, workspace.CurrentCamera.ViewportSize.X * 0.9), 0, math.min(380, workspace.CurrentCamera.ViewportSize.Y * 0.7))
+    mainFrame.Size = UDim2.new(0, guiWidth, 0, guiHeight)
     mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
     mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
     mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
@@ -645,8 +659,10 @@ local function buildUI()
     
     table.insert(protectedElements, closeBtn)
 
+    local sidebarWidth = isMobile and 110 or 130
+
     local sidebar = Instance.new("Frame", mainFrame)
-    sidebar.Size = UDim2.new(0, 130, 1, -60)
+    sidebar.Size = UDim2.new(0, sidebarWidth, 1, -60)
     sidebar.Position = UDim2.new(0, 10, 0, 55)
     sidebar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     sidebar.BackgroundTransparency = 0.3
@@ -661,7 +677,7 @@ local function buildUI()
         btn.Text = text
         btn.TextColor3 = Color3.fromRGB(200, 210, 230)
         btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 15
+        btn.TextSize = isMobile and 13 or 15
         btn.AutoButtonColor = false
         btn.TextXAlignment = Enum.TextXAlignment.Left
         btn.MouseEnter:Connect(function() btn.TextColor3 = Color3.fromRGB(255, 255, 255) end)
@@ -675,8 +691,8 @@ local function buildUI()
     local teleportBtn = createTabButton("Teleport", 110)
 
     local contentContainer = Instance.new("Frame", mainFrame)
-    contentContainer.Size = UDim2.new(1, -155, 1, -65)
-    contentContainer.Position = UDim2.new(0, 145, 0, 57)
+    contentContainer.Size = UDim2.new(1, -(sidebarWidth + 25), 1, -65)
+    contentContainer.Position = UDim2.new(0, sidebarWidth + 15, 0, 57)
     contentContainer.BackgroundTransparency = 1
     contentContainer.BorderSizePixel = 0
 
@@ -733,7 +749,7 @@ local function buildUI()
         if isOn then enableAutoFish() end
     end)
     
-    createModernToggle(featuresPage, "Auto Sell (500+ fish)", 95, function(isOn)
+    createModernToggle(featuresPage, "Auto Sell (50+ fish)", 95, function(isOn)
         autoSellWasOn = isOn
         autoSellRunning = isOn
         if isOn then autoSellLoop() end
