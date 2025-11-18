@@ -602,19 +602,8 @@ local function buildUI()
         if autoClickerRunning then stopAutoClicker() end
     end)
 
-    local viewportSize = workspace.CurrentCamera.ViewportSize
-    local screenWidth = viewportSize.X
-    
-    local guiWidth = 380
-    local guiHeight = 300
-    
-    if screenWidth < 800 then
-        guiWidth = 320
-        guiHeight = 260
-    end
-
     local mainFrame = Instance.new("Frame", gui)
-    mainFrame.Size = UDim2.new(0, guiWidth, 0, guiHeight)
+    mainFrame.Size = UDim2.new(0, 350, 0, 280)
     mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
     mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
     mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
@@ -656,10 +645,8 @@ local function buildUI()
     
     table.insert(protectedElements, closeBtn)
 
-    local sidebarWidth = screenWidth < 800 and 85 or 120
-
     local sidebar = Instance.new("Frame", mainFrame)
-    sidebar.Size = UDim2.new(0, sidebarWidth, 1, -60)
+    sidebar.Size = UDim2.new(0, 100, 1, -60)
     sidebar.Position = UDim2.new(0, 10, 0, 55)
     sidebar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     sidebar.BackgroundTransparency = 0.3
@@ -674,7 +661,7 @@ local function buildUI()
         btn.Text = text
         btn.TextColor3 = Color3.fromRGB(200, 210, 230)
         btn.Font = Enum.Font.GothamBold
-        btn.TextSize = screenWidth < 800 and 11 or 15
+        btn.TextSize = 12
         btn.AutoButtonColor = false
         btn.TextXAlignment = Enum.TextXAlignment.Left
         btn.MouseEnter:Connect(function() btn.TextColor3 = Color3.fromRGB(255, 255, 255) end)
@@ -688,8 +675,8 @@ local function buildUI()
     local teleportBtn = createTabButton("Teleport", 110)
 
     local contentContainer = Instance.new("Frame", mainFrame)
-    contentContainer.Size = UDim2.new(1, -(sidebarWidth + 25), 1, -65)
-    contentContainer.Position = UDim2.new(0, sidebarWidth + 15, 0, 57)
+    contentContainer.Size = UDim2.new(1, -125, 1, -65)
+    contentContainer.Position = UDim2.new(0, 115, 0, 57)
     contentContainer.BackgroundTransparency = 1
     contentContainer.BorderSizePixel = 0
 
@@ -706,7 +693,7 @@ local function buildUI()
     infoText.TextWrapped = true
     infoText.TextColor3 = Color3.fromRGB(220, 220, 240)
     infoText.Font = Enum.Font.GothamBold
-    infoText.TextSize = 15
+    infoText.TextSize = 14
     infoText.Text = "Script by Laudya\nMade with love"
     infoText.TextXAlignment = Enum.TextXAlignment.Center
     infoText.TextYAlignment = Enum.TextYAlignment.Center
@@ -716,7 +703,7 @@ local function buildUI()
     featuresPage.Size = UDim2.new(1, 0, 1, 0)
     featuresPage.BackgroundTransparency = 1
     featuresPage.BorderSizePixel = 0
-    featuresPage.ScrollBarThickness = 4
+    featuresPage.ScrollBarThickness = 3
     featuresPage.CanvasSize = UDim2.new(0, 0, 0, 600)
     featuresPage.Visible = false
 
@@ -725,7 +712,7 @@ local function buildUI()
     teleportPage.Size = UDim2.new(1, 0, 1, 0)
     teleportPage.BackgroundTransparency = 1
     teleportPage.BorderSizePixel = 0
-    teleportPage.ScrollBarThickness = 4
+    teleportPage.ScrollBarThickness = 3
     teleportPage.CanvasSize = UDim2.new(0, 0, 0, 300)
     teleportPage.Visible = false
 
@@ -746,7 +733,7 @@ local function buildUI()
         if isOn then enableAutoFish() end
     end)
     
-    createModernToggle(featuresPage, "Auto Sell (50+ fish)", 95, function(isOn)
+    createModernToggle(featuresPage, "Auto Sell (500 fish)", 95, function(isOn)
         autoSellWasOn = isOn
         autoSellRunning = isOn
         if isOn then autoSellLoop() end
