@@ -12,7 +12,7 @@ local activeIsland = nil
 local clickPosition = nil
 local settingClickPosition = false
 local fishCount = 0
-local autoSellThreshold = 50
+local autoSellThreshold = 500
 
 local autoFishWasOn = false
 local autoSellWasOn = false
@@ -733,7 +733,7 @@ local function buildUI()
         if isOn then enableAutoFish() end
     end)
     
-    createModernToggle(featuresPage, "Auto Sell (50+ fish)", 95, function(isOn)
+    createModernToggle(featuresPage, "Auto Sell (500+ fish)", 95, function(isOn)
         autoSellWasOn = isOn
         autoSellRunning = isOn
         if isOn then autoSellLoop() end
