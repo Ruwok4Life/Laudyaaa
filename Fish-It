@@ -137,6 +137,7 @@ local function enableAutoFish()
     end)
 end
 
+-- FPS Boost Enable / Disable (keep original, no changes)
 local function enableFPSBoost()
     originalLightingSettings = {
         Brightness = Lighting.Brightness,
@@ -156,9 +157,9 @@ local function enableFPSBoost()
     Lighting.FogStart = 0
     for _, effect in ipairs(Lighting:GetChildren()) do
         pcall(function()
-            if effect:IsA("PostEffect") or effect:IsA("BloomEffect") or effect:IsA("BlurEffect") or 
-               effect:IsA("ColorCorrectionEffect") or effect:IsA("SunRaysEffect") or 
-               effect:IsA("DepthOfFieldEffect") then
+            if effect:IsA("PostEffect") or effect:IsA("BloomEffect") or
+               effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or
+               effect:IsA("SunRaysEffect") or effect:IsA("DepthOfFieldEffect") then
                 effect.Enabled = false
             elseif effect:IsA("Atmosphere") or effect:IsA("Sky") then
                 effect:Destroy()
@@ -168,8 +169,8 @@ local function enableFPSBoost()
     task.spawn(function()
         for _, obj in pairs(workspace:GetDescendants()) do
             pcall(function()
-                if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or 
-                   obj:IsA("Fire") or obj:IsA("Sparkles") or obj:IsA("PointLight") or 
+                if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or
+                   obj:IsA("Fire") or obj:IsA("Sparkles") or obj:IsA("PointLight") or
                    obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
                     obj.Enabled = false
                 elseif obj:IsA("BasePart") then
@@ -321,8 +322,206 @@ UserInputService.InputBegan:Connect(function(input)
     end
 end)
 
+local function createCategoryHeader(parent, text, posY)
+    local header = Instance.new("TextLabel", parent)
+    header.Size = UDim2.new(1, -20, 0, 16)
+    header.Position = UDim2.new(0, 10, 0, posY)
+    header.Text = text
+    header.TextColor3 = Color3.fromRGB(180, 190, 255)
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 9
+    header.BackgroundTransparency = 1
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    return header
+end
+
+local function createModernToggle(parent, labelText, posY, onToggleCallback)
+    local toggleWidth, toggleHeight = 34, 16
+    local holder = Instance.new("TextButton", parent)
+    holder.Size = UDim2.new(1, -20, 0, 26)
+    holder.Position = UDim2.new(0, 10, 0, posY)
+    holder.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    holder.BackgroundTransparency = 0.3
+    holder.BorderSizePixel = 0
+    holder.Text = ""
+    holder.AutoButtonColor = false
+    holder:SetAttribute("OriginalTransparency", 0.3)
+    Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", holder)
+    stroke.Color = Color3.fromRGB(70, 70, 85)
+    stroke.Thickness = 1
+    stroke.Transparency = 0.4
+    local label = Instance.new("TextLabel", holder)
+    label.Size = UDim2.new(1, -toggleWidth - 15, 1, 0)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(220, 220, 230)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 8
+    label.BackgroundTransparency = 1
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    local sliderBg = Instance.new("Frame", holder)
+    sliderBg.Size = UDim2.new(0, toggleWidth, 0, toggleHeight)
+    sliderBg.Position = UDim2.new(1, -toggleWidth - 10, 0.5, -toggleHeight / 2)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(100, 100, 115)
+    sliderBg.BorderSizePixel = 0
+    sliderBg.ZIndex = 2
+    Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(1, 0)
+    local knob = Instance.new("Frame", sliderBg)
+    knob.Size = UDim2.new(0, toggleHeight - 4, 0, toggleHeight - 4)
+    knob.Position = UDim2.new(0, 2, 0.5, -(toggleHeight - 4) / 2)
+    knob.BackgroundColor3 = Color3.fromRGB(240, 240, 245)
+    knob.BorderSizePixel = 0
+    knob.ZIndex = 3
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+    local isOn = false
+    local function setVisual(state)
+        if state then
+            TweenService:Create(sliderBg, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(88, 101, 242) }):Play()
+            TweenService:Create(knob, TweenInfo.new(0.2), { Position = UDim2.new(1, -(toggleHeight - 2), 0.5, -(toggleHeight - 4) / 2) }):Play()
+        else
+            TweenService:Create(sliderBg, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(100, 100, 115) }):Play()
+            TweenService:Create(knob, TweenInfo.new(0.2), { Position = UDim2.new(0, 2, 0.5, -(toggleHeight - 4) / 2) }):Play()
+        end
+    end
+    holder.MouseButton1Click:Connect(function()
+        isOn = not isOn
+        setVisual(isOn)
+        if onToggleCallback then
+            onToggleCallback(isOn, holder)
+        end
+    end)
+    setVisual(false)
+    table.insert(allGuiElements, holder)
+    return holder
+end
+
+local function createButton(parent, labelText, posY, onClickCallback)
+    local holder = Instance.new("TextButton", parent)
+    holder.Size = UDim2.new(1, -20, 0, 26)
+    holder.Position = UDim2.new(0, 10, 0, posY)
+    holder.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+    holder.BackgroundTransparency = 0.2
+    holder.BorderSizePixel = 0
+    holder.Text = labelText
+    holder.TextColor3 = Color3.fromRGB(255, 255, 255)
+    holder.Font = Enum.Font.GothamBold
+    holder.TextSize = 9
+    holder.AutoButtonColor = false
+    holder:SetAttribute("OriginalTransparency", 0.2)
+    Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
+    holder.MouseButton1Click:Connect(function()
+        if onClickCallback then
+            onClickCallback()
+        end
+    end)
+    holder.MouseEnter:Connect(function()
+        TweenService:Create(holder, TweenInfo.new(0.2), { BackgroundTransparency = 0 }):Play()
+    end)
+    holder.MouseLeave:Connect(function()
+        TweenService:Create(holder, TweenInfo.new(0.2), { BackgroundTransparency = 0.2 }):Play()
+    end)
+    table.insert(allGuiElements, holder)
+    return holder
+end
+
+local function createSlider(parent, labelText, posY, minVal, maxVal, defaultVal, onValueChanged)
+    local holder = Instance.new("Frame", parent)
+    holder.Size = UDim2.new(1, -20, 0, 30)
+    holder.Position = UDim2.new(0, 10, 0, posY)
+    holder.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    holder.BackgroundTransparency = 0.3
+    holder.BorderSizePixel = 0
+    Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", holder)
+    stroke.Color = Color3.fromRGB(70, 70, 85)
+    stroke.Thickness = 1
+    stroke.Transparency = 0.4
+    local label = Instance.new("TextLabel", holder)
+    label.Size = UDim2.new(1, -38, 0, 10)
+    label.Position = UDim2.new(0, 6, 0, 3)
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(220, 220, 230)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 8
+    label.BackgroundTransparency = 1
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    local valueLabel = Instance.new("TextLabel", holder)
+    valueLabel.Size = UDim2.new(0, 32, 0, 10)
+    valueLabel.Position = UDim2.new(1, -36, 0, 3)
+    valueLabel.Text = tostring(defaultVal) .. " CPS"
+    valueLabel.TextColor3 = Color3.fromRGB(180, 190, 255)
+    valueLabel.Font = Enum.Font.GothamBold
+    valueLabel.TextSize = 8
+    valueLabel.BackgroundTransparency = 1
+    local sliderFrame = Instance.new("Frame", holder)
+    sliderFrame.Size = UDim2.new(1, -14, 0, 3)
+    sliderFrame.Position = UDim2.new(0, 7, 0, 14)
+    sliderFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+    sliderFrame.BorderSizePixel = 0
+    Instance.new("UICorner", sliderFrame).CornerRadius = UDim.new(1, 0)
+    local sliderFill = Instance.new("Frame", sliderFrame)
+    sliderFill.Size = UDim2.new((defaultVal - minVal) / (maxVal - minVal), 0, 1, 0)
+    sliderFill.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+    sliderFill.BorderSizePixel = 0
+    Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
+    local sliderButton = Instance.new("TextButton", sliderFrame)
+    sliderButton.Size = UDim2.new(0, 8, 0, 8)
+    sliderButton.Position = UDim2.new((defaultVal - minVal) / (maxVal - minVal), -4, 0.5, -4)
+    sliderButton.BackgroundColor3 = Color3.fromRGB(240, 240, 245)
+    sliderButton.Text = ""
+    sliderButton.BorderSizePixel = 0
+    Instance.new("UICorner", sliderButton).CornerRadius = UDim.new(1, 0)
+    local dragging = false
+    local function updateSlider(pos)
+        local sliderPos = sliderFrame.AbsolutePosition.X
+        local sliderSize = sliderFrame.AbsoluteSize.X
+        local percentage = math.clamp((pos - sliderPos) / sliderSize, 0, 1)
+        local value = math.floor(minVal + (maxVal - minVal) * percentage)
+        sliderButton.Position = UDim2.new(percentage, -4, 0.5, -4)
+        sliderFill.Size = UDim2.new(percentage, 0, 1, 0)
+        valueLabel.Text = tostring(value) .. " CPS"
+        if onValueChanged then
+            onValueChanged(value)
+        end
+    end
+    sliderButton.MouseButton1Down:Connect(function()
+        dragging = true
+    end)
+    sliderButton.TouchPan:Connect(function(touchPositions, totalTranslation, velocity, userInputState)
+        if userInputState == Enum.UserInputState.Change and touchPositions[1] then
+            dragging = true
+            updateSlider(touchPositions[1].X)
+        elseif userInputState == Enum.UserInputState.End then
+            dragging = false
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging then
+            local pos
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                pos = UserInputService:GetMouseLocation().X
+            elseif input.UserInputType == Enum.UserInputType.Touch then
+                pos = input.Position.X
+            end
+            if pos then
+                updateSlider(pos)
+            end
+        end
+    end)
+    table.insert(allGuiElements, sliderButton)
+    return holder
+end
+
 local function buildUI()
-    if gui then return end
+    if gui then
+        return
+    end
     local blur = Instance.new("BlurEffect")
     blur.Size = 12
     blur.Parent = Lighting
@@ -330,6 +529,7 @@ local function buildUI()
     gui.Name = "FishItGlassHub"
     gui.ResetOnSpawn = false
     gui.Parent = player.PlayerGui
+
     clickIndicator = Instance.new("TextButton", gui)
     clickIndicator.Size = UDim2.new(0, 36, 0, 36)
     clickIndicator.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
@@ -355,14 +555,18 @@ local function buildUI()
     stopLabel.TextSize = 8
     stopLabel.BackgroundTransparency = 1
     clickIndicator.MouseButton1Click:Connect(function()
-        if autoClickerRunning then stopAutoClicker() end
+        if autoClickerRunning then
+            stopAutoClicker()
+        end
     end)
+
     local vps = workspace.CurrentCamera.ViewportSize
     local scrW, scrH = vps.X, vps.Y
     local minW, maxW = 160, 260
     local minH, maxH = 90, 140
     local targetW = math.clamp(math.floor(scrW * 0.23), minW, maxW)
     local targetH = math.clamp(math.floor(scrH * 0.22), minH, maxH)
+
     local mainFrame = Instance.new("Frame", gui)
     mainFrame.Size = UDim2.new(0, targetW, 0, targetH)
     mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -370,9 +574,11 @@ local function buildUI()
     mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
     mainFrame.BorderSizePixel = 0
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 7)
+
     local mainStroke = Instance.new("UIStroke", mainFrame)
     mainStroke.Color = Color3.fromRGB(60, 60, 75)
     mainStroke.Thickness = 1.5
+
     local titleLabel = Instance.new("TextLabel", mainFrame)
     titleLabel.Size = UDim2.new(0, targetW - 30, 0, 13)
     titleLabel.Position = UDim2.new(0, 4, 0, 2)
@@ -382,6 +588,7 @@ local function buildUI()
     titleLabel.TextSize = 10
     titleLabel.BackgroundTransparency = 1
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
     closeBtn = Instance.new("TextButton", mainFrame)
     closeBtn.Size = UDim2.new(0, 12, 0, 12)
     closeBtn.Position = UDim2.new(1, -16, 0, 2)
@@ -393,13 +600,16 @@ local function buildUI()
     closeBtn.ZIndex = 999
     closeBtn.Active = true
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 3)
-    closeBtn.MouseButton1Click:Connect(function() mainFrame.Visible = false end)
+    closeBtn.MouseButton1Click:Connect(function()
+        mainFrame.Visible = false
+    end)
     closeBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             mainFrame.Visible = false
         end
     end)
     table.insert(protectedElements, closeBtn)
+
     local sidebarW = math.max(math.floor(targetW * 0.30), 34)
     local sidebar = Instance.new("Frame", mainFrame)
     sidebar.Size = UDim2.new(0, sidebarW, 1, -14)
@@ -408,6 +618,7 @@ local function buildUI()
     sidebar.BackgroundTransparency = 0.3
     sidebar.BorderSizePixel = 0
     Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 6)
+
     local function createTabBtn(text, yPos)
         local btn = Instance.new("TextButton", sidebar)
         btn.Size = UDim2.new(1, -6, 0, 13)
@@ -419,14 +630,20 @@ local function buildUI()
         btn.TextSize = 8
         btn.AutoButtonColor = false
         btn.TextXAlignment = Enum.TextXAlignment.Left
-        btn.MouseEnter:Connect(function() btn.TextColor3 = Color3.fromRGB(255, 255, 255) end)
-        btn.MouseLeave:Connect(function() btn.TextColor3 = Color3.fromRGB(200, 210, 230) end)
+        btn.MouseEnter:Connect(function()
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end)
+        btn.MouseLeave:Connect(function()
+            btn.TextColor3 = Color3.fromRGB(200, 210, 230)
+        end)
         table.insert(protectedElements, btn)
         return btn
     end
+
     local infoBtn = createTabBtn("Information", 7)
     local featuresBtn = createTabBtn("Features", 22)
     local teleportBtn = createTabBtn("Teleport", 37)
+
     local contentW = targetW - sidebarW - 12
     local contentH = targetH - 15
     local contentContainer = Instance.new("Frame", mainFrame)
@@ -434,11 +651,13 @@ local function buildUI()
     contentContainer.Position = UDim2.new(0, sidebarW + 6, 0, 12)
     contentContainer.BackgroundTransparency = 1
     contentContainer.BorderSizePixel = 0
+
     local infoPage = Instance.new("Frame", contentContainer)
     infoPage.Name = "InfoPage"
     infoPage.Size = UDim2.new(1, 0, 1, 0)
     infoPage.BackgroundTransparency = 1
     infoPage.Visible = true
+
     local infoText = Instance.new("TextLabel", infoPage)
     infoText.Size = UDim2.new(1, -6, 1, -6)
     infoText.Position = UDim2.new(0, 3, 0, 3)
@@ -450,6 +669,7 @@ local function buildUI()
     infoText.Text = "Script by Laudya\nMade with love"
     infoText.TextXAlignment = Enum.TextXAlignment.Center
     infoText.TextYAlignment = Enum.TextYAlignment.Center
+
     local featuresPage = Instance.new("ScrollingFrame", contentContainer)
     featuresPage.Name = "FeaturesPage"
     featuresPage.Size = UDim2.new(1, 0, 1, 0)
@@ -458,6 +678,7 @@ local function buildUI()
     featuresPage.ScrollBarThickness = 2
     featuresPage.CanvasSize = UDim2.new(0, 0, 0, 185)
     featuresPage.Visible = false
+
     local teleportPage = Instance.new("ScrollingFrame", contentContainer)
     teleportPage.Name = "TeleportPage"
     teleportPage.Size = UDim2.new(1, 0, 1, 0)
@@ -466,89 +687,158 @@ local function buildUI()
     teleportPage.ScrollBarThickness = 2
     teleportPage.CanvasSize = UDim2.new(0, 0, 0, 110)
     teleportPage.Visible = false
+
     local function showPage(page)
         infoPage.Visible = false
         featuresPage.Visible = false
         teleportPage.Visible = false
         page.Visible = true
     end
-    infoBtn.MouseButton1Click:Connect(function() showPage(infoPage) end)
-    featuresBtn.MouseButton1Click:Connect(function() showPage(featuresPage) end)
-    teleportBtn.MouseButton1Click:Connect(function() showPage(teleportPage) end)
+
+    infoBtn.MouseButton1Click:Connect(function()
+        showPage(infoPage)
+    end)
+    featuresBtn.MouseButton1Click:Connect(function()
+        showPage(featuresPage)
+    end)
+    teleportBtn.MouseButton1Click:Connect(function()
+        showPage(teleportPage)
+    end)
+
     local y = 5
-    local function cat(t) y = y + 16; return createCategoryHeader(featuresPage, t, y-16) end
-    local function tog(t,cb) y = y + 21; return createModernToggle(featuresPage,t,y-21,cb) end
-    local function btn(t,cb) y = y + 21; return createButton(featuresPage,t,y-21,cb) end
-    local function sld(t,a,b,c,cb) y = y + 25; return createSlider(featuresPage,t,y-25,a,b,c,cb) end
+
+    local function cat(t)
+        y = y + 16
+        return createCategoryHeader(featuresPage, t, y - 16)
+    end
+
+    local function tog(t, cb)
+        y = y + 21
+        return createModernToggle(featuresPage, t, y - 21, cb)
+    end
+
+    local function btn(t, cb)
+        y = y + 21
+        return createButton(featuresPage, t, y - 21, cb)
+    end
+
+    local function sld(t, a, b, c, cb)
+        y = y + 25
+        return createSlider(featuresPage, t, y - 25, a, b, c, cb)
+    end
+
     cat("FISHING")
-    tog("Auto Fish",function(s) autoFishWasOn=s if s then enableAutoFish() end end)
-    tog("Auto Sell (500 fish)",function(s) autoSellWasOn=s autoSellRunning=s if s then autoSellLoop() end end)
+    tog("Auto Fish", function(isOn)
+        autoFishWasOn = isOn
+        if isOn then
+            enableAutoFish()
+        end
+    end)
+    tog("Auto Sell (500 fish)", function(isOn)
+        autoSellWasOn = isOn
+        autoSellRunning = isOn
+        if isOn then
+            autoSellLoop()
+        end
+    end)
+
     cat("AUTO CLICKER")
-    sld("Click Speed",1,50,20,function(v) clickerDelay=1/v end)
-    btn("Set Click Position",function()
-        settingClickPosition=true; clickIndicator.Visible=true
-        local connection; connection=UserInputService.InputBegan:Connect(function(input)
-            if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-                local mousePos=UserInputService:GetMouseLocation()
-                clickPosition=Vector2.new(mousePos.X,mousePos.Y)
-                clickIndicator.Position=UDim2.new(0,mousePos.X-18,0,mousePos.Y-18)
-                settingClickPosition=false; connection:Disconnect()
+    sld("Click Speed", 1, 50, 20, function(value)
+        clickerDelay = 1 / value
+    end)
+    btn("Set Click Position", function()
+        settingClickPosition = true
+        clickIndicator.Visible = true
+        local connection
+        connection = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                local mousePos = UserInputService:GetMouseLocation()
+                clickPosition = Vector2.new(mousePos.X, mousePos.Y)
+                clickIndicator.Position = UDim2.new(0, mousePos.X - 18, 0, mousePos.Y - 18)
+                settingClickPosition = false
+                connection:Disconnect()
             end
         end)
     end)
-    autoClickerToggle = tog("Enable Auto Clicker",function(s)
-        autoClickerWasOn=s; autoClickerRunning=s
-        if s then autoClickerLoop();setGuiInteractable(false);if clickPosition then clickIndicator.Visible=true end
-        else stopAutoClicker() end
+    autoClickerToggle = tog("Enable Auto Clicker", function(isOn)
+        autoClickerWasOn = isOn
+        autoClickerRunning = isOn
+        if isOn then
+            autoClickerLoop()
+            setGuiInteractable(false)
+            if clickPosition then
+                clickIndicator.Visible = true
+            end
+        else
+            stopAutoClicker()
+        end
     end)
     cat("PERFORMANCE")
-    tog("FPS Boost",function(s) fpsBoostWasOn=s;fpsBoostEnabled=s;if s then enableFPSBoost() else disableFPSBoost() end end)
-    local teleY=5
-    for i,island in ipairs(islands) do
-        teleY=teleY+21
-        createModernToggle(teleportPage,island.Name,teleY-21,function(s,clicked)
-            if s then
-                for _,child in ipairs(teleportPage:GetChildren()) do
-                    if child:IsA("TextButton") and child~=clicked then
-                        local bar=child:FindFirstChild("Frame")
-                        if bar then
-                            local knob=bar:FindFirstChild("Frame")
-                            if knob then
-                                TweenService:Create(bar,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(100,100,115)}):Play()
-                                TweenService:Create(knob,TweenInfo.new(0.2),{Position=UDim2.new(0,2,0.5,-6)}):Play()
+    tog("FPS Boost", function(isOn)
+        fpsBoostWasOn = isOn
+        fpsBoostEnabled = isOn
+        if isOn then
+            enableFPSBoost()
+        else
+            disableFPSBoost()
+        end
+    end)
+
+    local startY = 10
+    for i, island in ipairs(islands) do
+        createModernToggle(teleportPage, island.Name, startY + (i - 1) * 21, function(isOn, clickedToggle)
+            if isOn then
+                for _, child in ipairs(teleportPage:GetChildren()) do
+                    if child:IsA("TextButton") and child ~= clickedToggle then
+                        local otherSlider = child:FindFirstChild("Frame")
+                        if otherSlider then
+                            local otherKnob = otherSlider:FindFirstChild("Frame")
+                            if otherKnob then
+                                TweenService:Create(otherSlider, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(100, 100, 115) }):Play()
+                                TweenService:Create(otherKnob, TweenInfo.new(0.2), { Position = UDim2.new(0, 2, 0.5, -6) }):Play()
                             end
                         end
                     end
                 end
-                activeIsland=island
+                activeIsland = island
                 teleportAndFace()
             end
         end)
     end
+
     local logoBtn = Instance.new("TextButton", gui)
     logoBtn.Size = UDim2.new(0, 18, 0, 18)
-    logoBtn.Position = UDim2.new(0, 7, 0.85, 0)
+    logoBtn.Position = UDim2.new(0, 6, 0.85, 0)
     logoBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
     logoBtn.Text = "🦋"
     logoBtn.TextSize = 9
-    Instance.new("UICorner", logoBtn).CornerRadius = UDim.new(0, 5)
+    Instance.new("UICorner", logoBtn).CornerRadius = UDim.new(0, 4)
     logoBtn.Visible = false
-    logoBtn.MouseButton1Click:Connect(function() mainFrame.Visible = true end)
-    mainFrame:GetPropertyChangedSignal("Visible"):Connect(function() logoBtn.Visible = not mainFrame.Visible end)
+    logoBtn.MouseButton1Click:Connect(function()
+        mainFrame.Visible = true
+    end)
+    mainFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+        logoBtn.Visible = not mainFrame.Visible
+    end)
+
     local function makeDraggable(frame)
-        local dragging,dragStart,startPos=false,nil,nil
+        local dragging, dragStart, startPos = false, nil, nil
         frame.InputBegan:Connect(function(input)
-            if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-                dragging=true; dragStart=input.Position; startPos=frame.Position
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = frame.Position
                 input.Changed:Connect(function()
-                    if input.UserInputState==Enum.UserInputState.End then dragging=false end
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
                 end)
             end
         end)
         UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
-                local delta=input.Position-dragStart
-                frame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = input.Position - dragStart
+                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
     end
@@ -559,11 +849,23 @@ end
 
 player.CharacterAdded:Connect(function()
     task.wait(2)
-    if autoFishWasOn then enableAutoFish() end
-    if autoSellWasOn then autoSellRunning=true; autoSellLoop() end
-    if autoClickerWasOn then autoClickerRunning=true; autoClickerLoop() end
-    if fpsBoostWasOn then enableFPSBoost() end
-    if activeIsland then teleportAndFace() end
+    if autoFishWasOn then
+        enableAutoFish()
+    end
+    if autoSellWasOn then
+        autoSellRunning = true
+        autoSellLoop()
+    end
+    if autoClickerWasOn then
+        autoClickerRunning = true
+        autoClickerLoop()
+    end
+    if fpsBoostWasOn then
+        enableFPSBoost()
+    end
+    if activeIsland then
+        teleportAndFace()
+    end
 end)
 
 buildUI()
