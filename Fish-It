@@ -557,7 +557,7 @@ local function buildUI()
     infoText.TextColor3 = Color3.fromRGB(220, 220, 240)
     infoText.Font = Enum.Font.GothamBold
     infoText.TextSize = 8
-    infoText.Text = "Script by Laudya\nMade with love"
+    infoText.Text = "Script developed by Einhard and made with luv"
     infoText.TextXAlignment = Enum.TextXAlignment.Center
     infoText.TextYAlignment = Enum.TextYAlignment.Center
 
