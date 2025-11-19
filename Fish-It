@@ -25,7 +25,7 @@ local protectedElements = {}
 local originalLightingSettings = {}
 
 local islands = {
-    { Name = "Esoteric Depths", Position = Vector3.new(3201.89, -1302.85, 1433.71), LookAt = Vector3.new(3300, -1300, 400) },
+    { Name = "Esoteric Depths", Position = Vector3.new(3601.89, -1302.85, 1433.71), LookAt = Vector3.new(3300, -1300, 400) },
     { Name = "Treasure Room", Position = Vector3.new(-3611.89, -279.07, -1589.51), LookAt = Vector3.new(-3619.21, -286.53, -1602.57) },
     { Name = "Lost Isle", Position = Vector3.new(-3738.2, -135.1, -1011.9), LookAt = Vector3.new(-3600, -135, -1200) },
 }
