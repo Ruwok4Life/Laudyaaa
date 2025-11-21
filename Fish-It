@@ -1,3 +1,4 @@
+
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -29,7 +30,6 @@ local protectedElements = {}
 local originalLightingSettings = {}
 
 local toggleRefs = {}
-
 local configPath = "LaudyaaaConfig_" .. player.UserId .. ".json"
 
 local islands = {
@@ -144,37 +144,24 @@ end
 
 loadSettings()
 
-local fishCountCache = 0
-local lastFishCheck = 0
 local function getFishCount()
-    local now = tick()
-    if now - lastFishCheck < 1 then return fishCountCache end
-    lastFishCheck = now
-    
-    local count = 0
-    
-    for _, gui in pairs(player.PlayerGui:GetChildren()) do
+    local root = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
+    if not root then return 0 end
+
+    for _, gui in ipairs(root:GetChildren()) do
         if gui:IsA("ScreenGui") then
-            for _, child in pairs(gui:GetDescendants()) do
-                if (child:IsA("TextLabel") or child:IsA("TextButton")) and child.Visible then
-                    local match = child.Text:match("(%d+)%s*/") or 
-                                 child.Text:match("Fish:%s*(%d+)") or
-                                 child.Text:match("(%d+)%s*Fish") or
-                                 child.Text:match("Inventory:%s*(%d+)")
-                    
+            for _, child in ipairs(gui:GetDescendants()) do
+                if child:IsA("TextLabel") and child.Name == "BagSize" and child.Visible then
+                    local match = child.Text:match("([%d,]+)%s*/")
                     if match then
-                        local num = tonumber(match)
-                        if num and num > count then
-                            count = num
-                        end
+                        match = match:gsub(",", ""):gsub("%s+", "")
+                        return tonumber(match)
                     end
                 end
             end
         end
     end
-    
-    fishCountCache = count
-    return count
+    return 0
 end
 
 local function sellAllFish()
@@ -230,14 +217,29 @@ local function autoSellLoop()
     task.spawn(function()
         while autoSellRunning do
             task.wait(15)
-            fishCount = getFishCount()
-            
-            if fishCount >= autoSellThreshold then
+            if getFishCount() >= autoSellThreshold then
                 sellAllFish()
                 task.wait(2)
             end
         end
     end)
+end
+
+local function debugMsg(msg)
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "DebugMsgPop"
+    gui.Parent = game.Players.LocalPlayer.PlayerGui
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 32)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundColor3 = Color3.fromRGB(22, 22, 44)
+    label.TextColor3 = Color3.fromRGB(255, 255, 100)
+    label.Text = tostring(msg)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 17
+    label.BackgroundTransparency = 0.17
+    label.Parent = gui
+    game:GetService("Debris"):AddItem(gui, 1.6)
 end
 
 local function enableAutoFish()
@@ -248,27 +250,10 @@ local function enableAutoFish()
         if not char then return end
         
         task.wait(1)
-        
-        local hasRod = false
-        for _, tool in pairs(char:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name:lower():find("rod") then
-                hasRod = true
-                break
-            end
-        end
-        
-        if not hasRod then
-            for _, tool in pairs(player.Backpack:GetChildren()) do
-                if tool:IsA("Tool") and tool.Name:lower():find("rod") then
-                    char.Humanoid:EquipTool(tool)
-                    task.wait(0.8)
-                    hasRod = true
-                    break
-                end
-            end
-        end
-        
-        if not hasRod then
+        local hasRod = char:FindFirstChild("!!!FISHING_VIEW_MODEL!!!")
+        task.wait(1)
+
+        if hasRod then
             local VIM = game:GetService("VirtualInputManager")
             VIM:SendKeyEvent(true, Enum.KeyCode.One, false, game)
             task.wait(0.05)
